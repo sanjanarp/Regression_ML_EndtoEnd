@@ -2,15 +2,15 @@ import streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
-import boto3, os
+import boto3, os, json
 from pathlib import Path
 
 # ============================
 # Config
 # ============================
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000/predict")
-S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data")
-REGION = os.getenv("AWS_REGION", "eu-west-2")
+S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data-sanj")
+REGION = os.getenv("AWS_REGION", "us-east-2")
 
 s3 = boto3.client("s3", region_name=REGION)
 
@@ -87,7 +87,7 @@ if st.button("Show Predictions 🚀"):
     else:
         st.write(f"📅 Running predictions for **{year}-{month:02d}** | Region: **{region}**")
 
-        payload = fe_df.loc[idx].to_dict(orient="records")
+        payload = json.loads(fe_df.loc[idx].to_json(orient="records"))
 
         try:
             resp = requests.post(API_URL, json=payload, timeout=60)
@@ -128,7 +128,7 @@ if st.button("Show Predictions 🚀"):
             if region == "All":
                 yearly_data = disp_df[disp_df["year"] == year].copy()
                 idx_all = yearly_data.index
-                payload_all = fe_df.loc[idx_all].to_dict(orient="records")
+                payload_all = json.loads(fe_df.loc[idx_all].to_json(orient="records"))
 
                 resp_all = requests.post(API_URL, json=payload_all, timeout=60)
                 resp_all.raise_for_status()
@@ -139,7 +139,7 @@ if st.button("Show Predictions 🚀"):
             else:
                 yearly_data = disp_df[(disp_df["year"] == year) & (disp_df["region"] == region)].copy()
                 idx_region = yearly_data.index
-                payload_region = fe_df.loc[idx_region].to_dict(orient="records")
+                payload_region = json.loads(fe_df.loc[idx_region].to_json(orient="records"))
 
                 resp_region = requests.post(API_URL, json=payload_region, timeout=60)
                 resp_region.raise_for_status()

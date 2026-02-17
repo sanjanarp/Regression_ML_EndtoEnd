@@ -1,6 +1,12 @@
+import sys
 import pandas as pd
 import pytest
 from pathlib import Path
+
+# Add project root to sys.path
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 from src.feature_pipeline.load import load_and_split_data
 from src.feature_pipeline.preprocess import (

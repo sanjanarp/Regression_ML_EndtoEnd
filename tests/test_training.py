@@ -1,6 +1,12 @@
 import math
+import sys
 from pathlib import Path
 from joblib import load
+
+# Add project root to sys.path
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 from src.training_pipeline.train import train_model
 from src.training_pipeline.eval import evaluate_model

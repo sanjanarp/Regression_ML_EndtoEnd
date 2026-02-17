@@ -1,8 +1,15 @@
 # Goal: Create a FastAPI app to serve your trained ML model into a web service that anyone 
 # (or any system) can call over HTTP.
 
-from fastapi import FastAPI            # Web framework for APIs
+import sys
 from pathlib import Path               # For handling file paths cleanly
+
+# Add project root to sys.path so `from src.*` imports work when running directly
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # …/Regression_ML_EndtoEnd
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from fastapi import FastAPI            # Web framework for APIs
 from typing import List, Dict, Any     # For type hints (clarity in endpoints)
 import pandas as pd                    # To handle incoming JSON as DataFrames
 import boto3, os                       # AWS SDK for Python + env variables
@@ -13,8 +20,8 @@ from src.inference_pipeline.inference import predict
 # ----------------------------
 # Config
 # ----------------------------
-S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data")
-REGION = os.getenv("AWS_REGION", "eu-west-2")
+S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data-sanj")
+REGION = os.getenv("AWS_REGION", "us-east-2")
 s3 = boto3.client("s3", region_name=REGION)
 
 # Ensures your app always has the latest model/data locally, 
@@ -67,22 +74,51 @@ def health():
     return status
 
 # Prediction Endpoint: This is the core ML serving endpoint.
+# Accepts ALREADY feature-engineered data (e.g. from the Streamlit holdout explorer).
 @app.post("/predict")
 def predict_batch(data: List[dict]):
-    if not MODEL_PATH.exists():
-        return {"error": f"Model not found at {str(MODEL_PATH)}"}
+    import traceback
+    from joblib import load as jl_load
 
-    df = pd.DataFrame(data)
-    if df.empty:
-        return {"error": "No data provided"}
+    try:
+        if not MODEL_PATH.exists():
+            return {"error": f"Model not found at {str(MODEL_PATH)}"}
 
-    preds_df = predict(df, model_path=MODEL_PATH)
+        df = pd.DataFrame(data)
+        if df.empty:
+            return {"error": "No data provided"}
 
-    resp = {"predictions": preds_df["predicted_price"].astype(float).tolist()}
-    if "actual_price" in preds_df.columns:
-        resp["actuals"] = preds_df["actual_price"].astype(float).tolist()
+        # Separate actuals if present
+        y_true = None
+        if "price" in df.columns:
+            y_true = df["price"].tolist()
+            df = df.drop(columns=["price"])
 
-    return resp
+        # Rename columns to match what the model was trained with
+        df = df.rename(columns={"city_full_encoded": "city_encoded"})
+
+        # Load model
+        model = jl_load(MODEL_PATH)
+
+        # Align columns to model's expected feature names
+        expected_features = model.get_booster().feature_names
+        df = df.reindex(columns=expected_features, fill_value=0)
+
+        # Coerce all columns to numeric (JSON nulls can cause object dtype)
+        df = df.apply(pd.to_numeric, errors="coerce").fillna(0)
+
+        # Predict
+        preds = model.predict(df)
+
+        resp = {"predictions": [float(p) for p in preds]}
+        if y_true is not None:
+            resp["actuals"] = [float(v) for v in y_true]
+
+        return resp
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"❌ /predict error:\n{tb}")
+        return {"error": str(e), "traceback": tb}
 
 # Batch runner
 from src.batch.run_monthly import run_monthly_predictions

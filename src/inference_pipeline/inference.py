@@ -11,9 +11,15 @@ Inference pipeline for Housing Regression MLE.
 
 from __future__ import annotations
 import argparse
+import sys
 from pathlib import Path
 import pandas as pd
 from joblib import load
+
+# Ensure project root is on sys.path so `from src...` works when running directly
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 # Import preprocessing + feature engineering helpers
 from src.feature_pipeline.preprocess import clean_and_merge, drop_duplicates, remove_outliers
