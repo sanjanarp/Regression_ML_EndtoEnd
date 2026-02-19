@@ -24,6 +24,10 @@ wheels/
 # Datasets (raw + processed)
 data/
 
+# Trained models
+models/
+*.pkl
+
 # MLflow experiment tracking
 mlruns/
 
