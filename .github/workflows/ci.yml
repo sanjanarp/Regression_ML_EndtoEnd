@@ -54,7 +54,7 @@ jobs:
             --cluster housing-api-cluster-ecs \
             --service housing-api-service \
             --force-new-deployment
-
+            
       # Deploy to ECS - Streamlit
       - name: Deploy housing-streamlit-service
         run: |
